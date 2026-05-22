@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>小森客户端 - Komori Client</title>
+    <style>
+        :root {
+            --bg: #1a1a1d;
+            --card-bg: #242429;
+            --text-primary: #f0f0f5;
+            --text-secondary: #c0c0c8;
+            --text-muted: #888890;
+            --border: rgba(255,255,255,0.08);
+            --shadow-card: 0 8px 30px rgba(0,0,0,0.2);
+            --shadow-hover: 0 15px 40px rgba(0,0,0,0.35);
+            --primary-blue: #3b82f6;
+            --primary-blue-hover: #2563eb;
+            --primary-purple: #8b5cf6;
+            --primary-purple-hover: #7c3aed;
+            --gold: #f59e0b;
+            --radius: 18px;
+            --radius-sm: 12px;
+            --transition: 0.25s ease;
+        }
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body {
+            background: var(--bg);
+            font-family: 'Inter', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+            position: relative;
+        }
+
+        /* ========== 深灰背景 + 真实乌云 + 垂直黑雨 ========== */
+        .bg-weather {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100vw; height: 100vh;
+            pointer-events: none;
+            z-index: 0;
+            overflow: hidden;
+        }
+
+        /* 乌云（浓密、深色、动画） */
+        .cloud-group {
+            position: absolute;
+            top: 4%; right: 6%;
+            width: 420px; height: 190px;
+            animation: cloudFloat 22s linear infinite;
+        }
+        @keyframes cloudFloat {
+            0% { transform: translate(0, 0); }
+            50% { transform: translate(-25px, 8px); }
+            100% { transform: translate(0, 0); }
+        }
+        .cloud-dark {
+            position: absolute;
+            background: #2c2c34;
+            border-radius: 100px;
+            opacity: 0.95;
+            box-shadow: 0 6px 15px rgba(0,0,0,0.4);
+        }
+        .cloud-dark:nth-child(1) { width: 240px; height: 110px; top: 45px; left: 20px; }
+        .cloud-dark:nth-child(2) { width: 200px; height: 95px; top: 10px; left: 110px; }
+        .cloud-dark:nth-child(3) { width: 220px; height: 90px; top: 65px; left: 150px; }
+        .cloud-dark:nth-child(4) { width: 180px; height: 85px; top: 25px; left: 45px; }
+
+        /* 真实垂直黑雨 */
+        .rain-vertical {
+            position: absolute;
+            top: 170px; left: 50%;
+            transform: translateX(-50%);
+            width: 350px; height: 600px;
+            overflow: hidden;
+        }
+        .rain-vertical::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: repeating-linear-gradient(
+                180deg,
+                rgba(0,0,0,0.4),
+                rgba(0,0,0,0.4) 1px,
+                transparent 1px,
+                transparent 14px
+            );
+            background-size: 100% 14px;
+            animation: rainFall 0.6s linear infinite;
+        }
+        @keyframes rainFall {
+            0% { background-position: 0 0; }
+            100% { background-position: 0 14px; }
+        }
+
+        /* 页面渐入动画 */
+        .main-container {
+            max-width: 1100px; margin: 0 auto; padding: 30px 20px 50px;
+            position: relative; z-index: 10;
+            opacity: 0; transform: translateY(30px);
+            transition: all 0.7s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .main-container.show { opacity: 1; transform: translateY(0); }
+
+        .content-card,
+        .header-section, .divider-line, .group-banner,
+        .gallery-item, .video-wrapper, .btn, .feature-item {
+            opacity: 0; transform: translateY(15px);
+            transition: all 0.5s cubic-bezier(0.25, 1, 0.5, 1);
+        }
+        .content-card.show,
+        .header-section.show, .divider-line.show, .group-banner.show,
+        .gallery-item.show, .video-wrapper.show, .btn.show, .feature-item.show {
+            opacity: 1; transform: translateY(0);
+        }
+
+        /* 原有样式保留 */
+        .splash-screen {
+            position: fixed; inset: 0; background: #111;
+            z-index: 10000; display: flex; align-items:center; justify-content:center;
+            pointer-events: all; transition: opacity 0.4s ease, visibility 0.4s ease;
+        }
+        .splash-screen.hidden { opacity:0; visibility:hidden; pointer-events:none; }
+        .splash-text {
+            display:flex; gap:8px;
+            font-size: clamp(3rem,12vw,7rem); font-weight:900; color:#fff; user-select:none;
+        }
+        .splash-text .char {
+            opacity:0; transform:translateY(60px);
+            animation: charBounce 0.4s forwards, colorShift 0.6s 0.8s forwards;
+        }
+        .splash-text .char:nth-child(1){animation-delay:0.04s,0.8s;}
+        .splash-text .char:nth-child(2){animation-delay:0.10s,0.8s;}
+        .splash-text .char:nth-child(3){animation-delay:0.16s,0.8s;}
+        .splash-text .char:nth-child(4){animation-delay:0.22s,0.8s;}
+        .splash-text .char:nth-child(5){animation-delay:0.28s,0.8s;}
+        @keyframes charBounce{
+            0%{opacity:0;transform:translateY(60px) scale(0.8);}
+            60%{opacity:1;transform:translateY(-6px) scale(1.05);}
+            100%{opacity:1;transform:translateY(0) scale(1);}
+        }
+        @keyframes colorShift{0%{color:#fff;}100%{color:#3b82f6;}}
+        .splash-scale{animation:scaleTwice 0.6s 1.2s forwards;}
+        @keyframes scaleTwice{0%{transform:scale(1);opacity:1;}50%{transform:scale(1.2);opacity:1;}100%{transform:scale(1.35);opacity:0;}}
+
+        .header-section{text-align:center;padding:40px 20px 10px;}
+        .header-icon{font-size:48px;margin-bottom:8px;}
+        .header-title{font-size:clamp(2rem,5vw,3rem);font-weight:800;color:var(--text-primary);letter-spacing:2px;margin-bottom:4px;}
+        .header-subtitle{font-size:1rem;color:var(--text-muted);letter-spacing:4px;text-transform:uppercase;font-weight:500;}
+        .group-banner{background:var(--card-bg);border:1px solid var(--border);border-radius:30px;padding:10px 24px;text-align:center;margin:0 auto 30px;display:inline-block;box-shadow:var(--shadow-card);font-size:0.95rem;color:var(--text-secondary);}
+        .group-banner strong{color:var(--primary-blue);font-weight:700;margin:0 4px;}
+        .divider-line{width:70px;height:3px;background:var(--primary-blue);margin:0 auto 30px;border-radius:3px;opacity:0.6;}
+        .content-card{background:var(--card-bg);border-radius:var(--radius);padding:28px 30px;margin-bottom:28px;border:1px solid var(--border);box-shadow:var(--shadow-card);transition:var(--transition);}
+        .content-card:hover{box-shadow:var(--shadow-hover);transform:translateY(-2px);}
+        .card-label{display:inline-block;font-size:0.8rem;letter-spacing:2px;color:var(--primary-blue);text-transform:uppercase;font-weight:600;margin-bottom:6px;}
+        .card-title{font-size:1.5rem;font-weight:700;margin-bottom:14px;}
+        .card-text{color:var(--text-secondary);line-height:1.7;font-size:0.95rem;margin-bottom:12px;}
+        .card-text strong{color:var(--text-primary);font-weight:700;}
+        .feature-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin-top:16px;}
+        .feature-item{background:#2a2a31;border-radius:var(--radius-sm);padding:18px 12px;text-align:center;border:1px solid var(--border);transition:var(--transition);}
+        .feature-item:hover{border-color:#444;transform:translateY(-3px);}
+        .feat-icon{font-size:2rem;margin-bottom:6px;display:block;}
+        .feat-name{font-weight:700;color:var(--text-primary);font-size:0.95rem;}
+        .feat-desc{font-size:0.8rem;color:var(--text-muted);margin-top:4px;}
+        .gallery-section{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-top:16px;}
+        .gallery-item{position:relative;border-radius:var(--radius-sm);overflow:hidden;background:#2a2a31;aspect-ratio:16/10;border:1px solid var(--border);cursor:pointer;transition:var(--transition);}
+        .gallery-item:hover{transform:translateY(-4px);box-shadow:0 12px 30px rgba(0,0,0,0.25);}
+        .gallery-item img{width:100%;height:100%;object-fit:cover;display:block;}
+        .gallery-badge{position:absolute;top:8px;right:8px;background:rgba(0,0,0,0.5);color:#fff;font-size:0.7rem;padding:3px 10px;border-radius:20px;}
+        .video-dual-container{display:flex;gap:24px;flex-wrap:wrap;margin-top:16px;}
+        .video-column{flex:1 1 280px;display:flex;flex-direction:column;gap:8px;}
+        .video-label{font-size:0.9rem;font-weight:600;color:var(--text-primary);background:#2a2a31;padding:8px 12px;border-radius:10px;text-align:center;border:1px solid var(--border);}
+        .video-wrapper{position:relative;border-radius:var(--radius-sm);overflow:hidden;background:#000;aspect-ratio:16/9;border:2px solid #333;}
+        .video-wrapper video{width:100%;height:100%;object-fit:contain;display:block;}
+        .action-section{display:flex;flex-wrap:wrap;justify-content:center;gap:20px;margin-top:20px;}
+        .btn{display:inline-flex;align-items:center;gap:8px;padding:14px 32px;font-size:1rem;font-weight:700;border-radius:50px;border:none;cursor:pointer;transition:var(--transition);text-decoration:none;color:#fff;box-shadow:0 4px 12px rgba(0,0,0,0.2);}
+        .btn-download{background:var(--primary-blue);}
+        .btn-download:hover{background:var(--primary-blue-hover);transform:translateY(-2px);}
+        .btn-admin{background:var(--primary-purple);}
+        .btn-admin:hover{background:var(--primary-purple-hover);transform:translateY(-2px);}
+        .btn-qq{background:linear-gradient(135deg,#f59e0b,#fbbf24);color:#1a1a2e;}
+        .btn-qq:hover{transform:translateY(-2px);}
+        .btn-icon{font-size:1.2rem;}
+        .action-hint{text-align:center;margin-top:14px;color:var(--text-muted);font-size:0.85rem;}
+        .action-hint span{color:var(--primary-blue);font-weight:600;}
+        .action-hint .purple{color:var(--primary-purple);}
+        .footer-note{text-align:center;padding:30px 20px;color:#777;font-size:0.8rem;}
+        .modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.6);backdrop-filter:blur(6px);z-index:1000;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity 0.25s;}
+        .modal-overlay.active{opacity:1;pointer-events:auto;}
+        .modal-dialog{background:#242429;border-radius:22px;padding:32px 28px;width:90%;max-width:380px;box-shadow:0 25px 60px rgba(0,0,0,0.4);text-align:center;transform:translateY(20px);transition:transform 0.25s;}
+        .modal-overlay.active .modal-dialog{transform:translateY(0);}
+        .modal-title{font-size:1.4rem;font-weight:700;color:#fff;margin-bottom:6px;}
+        .modal-subtitle{font-size:0.85rem;color:#aaa;margin-bottom:20px;}
+        .modal-subtitle .highlight{color:var(--primary-blue);font-weight:700;}
+        .modal-input{width:100%;padding:12px 16px;border:1px solid #444;background:#2a2a31;color:#fff;border-radius:12px;font-size:1rem;outline:none;margin-bottom:20px;}
+        .modal-input:focus{border-color:var(--primary-blue);box-shadow:0 0 0 3px rgba(59,130,246,0.15);}
+        .modal-actions{display:flex;gap:12px;justify-content:center;}
+        .modal-btn{padding:10px 26px;border-radius:30px;font-weight:600;border:none;cursor:pointer;}
+        .modal-btn.confirm{background:var(--primary-blue);color:#fff;}
+        .modal-btn.confirm:hover{background:var(--primary-blue-hover);}
+        .modal-btn.cancel{background:#3a3a42;color:#ccc;}
+        .modal-btn.cancel:hover{background:#444;}
+        .toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%) translateY(100px);background:#1e293b;color:#fff;padding:12px 28px;border-radius:40px;font-size:0.9rem;z-index:9999;pointer-events:none;transition:transform 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);}
+        .toast.show{transform:translateX(-50%) translateY(0);}
+        .toast.error{background:#ef4444;}
+    </style>
+</head>
+<body>
+
+<!-- 深灰背景 + 乌云 + 垂直黑雨 -->
+<div class="bg-weather">
+    <div class="cloud-group">
+        <div class="cloud-dark"></div>
+        <div class="cloud-dark"></div>
+        <div class="cloud-dark"></div>
+        <div class="cloud-dark"></div>
+        <div class="rain-vertical"></div>
+    </div>
+</div>
+
+<!-- 开屏动画 -->
+<div class="splash-screen" id="splashScreen">
+    <div class="splash-text splash-scale" id="splashText">
+        <span class="char">小</span>
+        <span class="char">森</span>
+        <span class="char">客</span>
+        <span class="char">户</span>
+        <span class="char">端</span>
+    </div>
+</div>
+
+<!-- 卡密弹窗 -->
+<div class="modal-overlay" id="cardModal">
+    <div class="modal-dialog">
+        <div class="modal-title">🔐 请输入卡密</div>
+        <div class="modal-subtitle">卡密请在<span class="highlight">QQ群内</span>获取</div>
+        <input type="text" class="modal-input" id="cardInput" placeholder="输入卡密" autocomplete="off">
+        <div class="modal-actions">
+            <button class="modal-btn cancel" id="modalCancel">取消</button>
+            <button class="modal-btn confirm" id="modalConfirm">验证下载</button>
+        </div>
+    </div>
+</div>
+
+<!-- 主体内容 -->
+<div class="main-container" id="mainContent">
+    <header class="header-section">
+        <div class="header-icon">🌲</div>
+        <h1 class="header-title">小森客户端</h1>
+        <p class="header-subtitle">Komori Client</p>
+    </header>
+    <div class="group-banner">
+        📢 QQ群：<strong id="groupNumberDisplay">105244209</strong> （加群获取卡密）
+    </div>
+    <div class="divider-line"></div>
+
+    <div class="content-card">
+        <span class="card-label">About</span>
+        <h2 class="card-title">🌟 关于小森客户端</h2>
+        <p class="card-text">
+            <strong>小森客户端（Komori Client）</strong> 是一款精心打造的高性能游戏客户端，集<strong>流畅体验</strong>、<strong>精美界面</strong>与<strong>强大功能</strong>于一体。
+        </p>
+        <div class="feature-grid">
+            <div class="feature-item"><span class="feat-icon">🚀</span><span class="feat-name">极速启动</span><span class="feat-desc">秒级响应</span></div>
+            <div class="feature-item"><span class="feat-icon">🎨</span><span class="feat-name">精美界面</span><span class="feat-desc">简洁优雅</span></div>
+            <div class="feature-item"><span class="feat-icon">🛡️</span><span class="feat-name">稳定可靠</span><span class="feat-desc">深度优化</span></div>
+            <div class="feature-item"><span class="feat-icon">⚙️</span><span class="feat-name">丰富功能</span><span class="feat-desc">一应俱全</span></div>
+        </div>
+    </div>
+
+    <div class="content-card">
+        <span class="card-label">Screenshots</span>
+        <h2 class="card-title">📸 客户端截图</h2>
+        <div class="gallery-section" id="galleryContainer">
+            <!-- 图片将动态生成到这里 -->
+        </div>
+    </div>
+
+    <div class="content-card">
+        <span class="card-label">Video</span>
+        <h2 class="card-title">🎬 视频展示</h2>
+        <p class="card-text">普通端与管理员内部演示视频：</p>
+        <div class="video-dual-container" id="videoContainer">
+            <div class="video-column" id="normalVideoCol"></div>
+            <div class="video-column" id="adminVideoCol"></div>
+        </div>
+    </div>
+
+    <div class="action-section">
+        <button class="btn btn-download" id="downloadBtn"><span class="btn-icon">📥</span> 立即下载</button>
+        <button class="btn btn-admin" id="adminDownloadBtn"><span class="btn-icon">🔑</span> 管理员下载</button>
+        <a href="https://qun.qq.com/universal-share/share?ac=1&authKey=JzeBlhryaDPepdy3eSOS5CdT%2BLUPCu1lpXLnH8fOVge9uqLUYV1W4FFVgPH%2FV5DA&busi_data=eyJncm91cENvZGUiOiIxMDUyNDQyMDkiLCJ0b2tlbiI6IjFIUWc1NzdqUzU5UktJZS91YzdNTHJkUUNTNmlHTkd2d3paVXpnR1R5WTcrNTZWZldDeis1cG1QWXU0ZTJKeXUiLCJ1aW4iOiI1MjI1MjcyNDkifQ%3D%3D&data=YErvYamcw7oGA22FxC5JznJPw6528245BkdcWsG97TyXHvTkkN0N0SP8w5ws6iuFe7-VK0es3-e9hRUoMhqyuQ&svctype=4&tempid=h5_group_info"
+           class="btn btn-qq" target="_blank" rel="noopener noreferrer"><span class="btn-icon">💬</span> 立即前往 QQ</a>
+    </div>
+    <p class="action-hint">
+        📥 <span>下载需验证卡密</span> · 🔑 <span class="purple">管理员专用通道</span> · 或 <span>加入QQ群</span> 获取卡密
+    </p>
+</div>
+
+<p class="footer-note">🌲 Komori Client &copy; 2026 · 小森客户端</p>
+<div class="toast" id="toast"></div>
+
+<script>
+    (function() {
+        // ==================== ⚠️ 请手动替换为真实直链 ====================
+        // 图片真实地址（请将 'YOUR_..._URL' 替换为手动获取的链接）
+        const IMAGE_URLS = {
+            img1: 'https://lz.qaiu.top/parser?url=https://share.feijipan.com/s/qQarmBwp',      // xiaosen.png 的真实直链
+            img2: 'https://lz.qaiu.top/parser?url=https://share.feijipan.com/s/cNarmd0E',     // xiaosen2.png 的真实直链
+            img3: 'https://lz.qaiu.top/parser?url=https://share.feijipan.com/s/86armhaW',     // xiaosen3.png 的真实直链
+            img4: 'https://lz.qaiu.top/parser?url=https://share.feijipan.com/s/ASarmSsx'      // xiaosen4.png 的真实直链
+        };
+        
+        // 视频真实地址（请将 'YOUR_..._URL' 替换为手动获取的链接）
+        const VIDEO_URLS = {
+            normal: 'https://lz.qaiu.top/parser?url=https://share.feijipan.com/s/z4arl2QN',    // xiaosen.mp4 的真实直链
+            admin: 'https://lz.qaiu.top/parser?url=https://share.feijipan.com/s/Inarn1hB',     // xiaosen1.mp4 的真实直链
+        };
+        // ================================================================
+
+        const QQ_GROUP_NUMBER = '105244209';
+        const CARD_KEYS_NORMAL = ['xiaosen999', 'xiaosennb666', 'xiaosen666'];
+        const DOWNLOAD_URL_NORMAL = 'https://1852090474.share.123865.com/123pan/TIoIvd-DYcUH?pwd=aB5w#';
+        const ADMIN_KEYS = ['xiaosenhpmodkehuduan', '小森专属卡'];
+        const ADMIN_DOWNLOAD_URL = 'https://1852090474.share.123865.com/123pan/TIoIvd-bcCUH?pwd=qsVW#';
+        
+        document.getElementById('groupNumberDisplay').textContent = QQ_GROUP_NUMBER;
+
+        // 动态生成图片画廊
+        const galleryContainer = document.getElementById('galleryContainer');
+        if (galleryContainer) {
+            const imgKeys = Object.keys(IMAGE_URLS);
+            galleryContainer.innerHTML = imgKeys.map((key, idx) => `
+                <div class="gallery-item">
+                    <span class="gallery-badge">图${idx+1}</span>
+                    <img src="${IMAGE_URLS[key]}" alt="截图${idx+1}" loading="lazy">
+                </div>
+            `).join('');
+        }
+
+        // 动态生成视频播放器
+        const normalCol = document.getElementById('normalVideoCol');
+        const adminCol = document.getElementById('adminVideoCol');
+        if (normalCol && adminCol) {
+            normalCol.innerHTML = `
+                <div class="video-label">📺 普通端演示</div>
+                <div class="video-wrapper">
+                    <video src="${VIDEO_URLS.normal}" controls preload="metadata" playsinline></video>
+                </div>
+            `;
+            adminCol.innerHTML = `
+                <div class="video-label">🔐 管理员内部演示</div>
+                <div class="video-wrapper">
+                    <video src="${VIDEO_URLS.admin}" controls preload="metadata" playsinline></video>
+                </div>
+            `;
+        }
+
+        // 开屏逻辑
+        const splash = document.getElementById('splashScreen');
+        const splashScale = document.getElementById('splashText');
+        const mainContent = document.getElementById('mainContent');
+
+        function showMainPage() {
+            splash.classList.add('hidden');
+            mainContent.classList.add('show');
+            setTimeout(()=>{document.querySelectorAll('.header-section,.group-banner,.divider-line').forEach(el=>el.classList.add('show'));},200);
+            setTimeout(()=>{document.querySelectorAll('.content-card').forEach(el=>el.classList.add('show'));},400);
+            setTimeout(()=>{document.querySelectorAll('.feature-item,.gallery-item').forEach(el=>el.classList.add('show'));},600);
+            setTimeout(()=>{document.querySelectorAll('.video-wrapper,.btn').forEach(el=>el.classList.add('show'));},800);
+        }
+
+        splashScale.addEventListener('animationend', (e) => {
+            if (e.animationName === 'scaleTwice') showMainPage();
+        });
+        setTimeout(() => {
+            if (!splash.classList.contains('hidden')) showMainPage();
+        }, 2500);
+
+        // Toast 提示
+        const toast = document.getElementById('toast');
+        let toastTimer;
+        function showToast(msg, isError = false) {
+            clearTimeout(toastTimer);
+            toast.textContent = msg;
+            toast.className = 'toast ' + (isError ? 'error' : '');
+            requestAnimationFrame(() => toast.classList.add('show'));
+            toastTimer = setTimeout(() => toast.classList.remove('show'), 2800);
+        }
+
+        // 图片点击放大
+        document.addEventListener('click', (e) => {
+            const img = e.target.closest('.gallery-item img');
+            if (img) {
+                const overlay = document.createElement('div');
+                overlay.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.85);display:flex;align-items:center;justify-content:center;cursor:pointer;';
+                const previewImg = document.createElement('img');
+                previewImg.src = img.src;
+                previewImg.style.cssText = 'max-width:92vw;max-height:90vh;object-fit:contain;border-radius:12px;';
+                overlay.appendChild(previewImg);
+                overlay.addEventListener('click', () => overlay.remove());
+                document.body.appendChild(overlay);
+            }
+        });
+        
+        document.addEventListener('keydown', e => {
+            if (e.key === 'Escape') {
+                const ov = document.querySelector('div[style*="z-index:9999"]');
+                if (ov) ov.remove();
+            }
+        });
+
+        // 卡密弹窗逻辑
+        const modal = document.getElementById('cardModal');
+        const cardInput = document.getElementById('cardInput');
+        const modalCancel = document.getElementById('modalCancel');
+        const modalConfirm = document.getElementById('modalConfirm');
+        let currentMode = 'normal';
+        
+        function openModal(mode) {
+            currentMode = mode;
+            cardInput.value = '';
+            modal.classList.add('active');
+            setTimeout(() => cardInput.focus(), 100);
+        }
+        function closeModal() {
+            modal.classList.remove('active');
+            cardInput.value = '';
+        }
+        modalCancel.addEventListener('click', closeModal);
+        modal.addEventListener('click', e => { if (e.target === modal) closeModal(); });
+        modalConfirm.addEventListener('click', () => {
+            const inputKey = cardInput.value.trim();
+            if (!inputKey) { showToast('⚠️ 请输入卡密', true); return; }
+            if (currentMode === 'normal') {
+                if (CARD_KEYS_NORMAL.includes(inputKey)) {
+                    closeModal();
+                    window.open(DOWNLOAD_URL_NORMAL, '_blank');
+                    showToast('✅ 验证成功，正在跳转下载...');
+                } else {
+                    showToast('❌ 卡密错误，请在QQ群获取有效卡密', true);
+                    cardInput.value = '';
+                }
+            } else if (currentMode === 'admin') {
+                if (ADMIN_KEYS.includes(inputKey)) {
+                    closeModal();
+                    window.open(ADMIN_DOWNLOAD_URL, '_blank');
+                    showToast('✅ 管理员验证通过，正在跳转...');
+                } else {
+                    showToast('❌ 管理员卡密错误', true);
+                    cardInput.value = '';
+                }
+            }
+        });
+        document.getElementById('downloadBtn').addEventListener('click', () => openModal('normal'));
+        document.getElementById('adminDownloadBtn').addEventListener('click', () => openModal('admin'));
+    })();
+</script>
+<script type="text/javascript" id="myhk" src="https://myhkw.cn/api/player/177895574451" key="177895574451" m="1"></script>
+</body>
+</html>
